@@ -127,7 +127,7 @@ GameSpace::GameSpace(const int height, const int width, const int top, const int
 			table[i][j] = 0;
 		}
 	}
-	
+
 	while (i < height && k < matrixHeight)
 	{
 		int j = left;

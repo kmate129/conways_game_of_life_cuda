@@ -2,10 +2,11 @@
 #include "GameSpace.h"
 #include "device_launch_parameters.h"
 #include "cuda_runtime.h"
+#include <stdlib.h>
 
-const int _dimension = 10;
-const int _threads = 4;
-const int _goal = 1;
+const int _dimension = 1024;
+const int _threads = 16;
+const int _goal = 1000;
 
 typedef int my_arr[_dimension];
 
@@ -22,38 +23,38 @@ __global__ void NextRound(my_arr* table, my_arr* temptable, int dimension) {
 	__shared__ int shr_matrix[_threads + 2][_threads + 2];
 	shr_matrix[threadIdx.y + 1][threadIdx.x + 1] = table[global_row][global_column];
 
-	if (threadIdx.x == 0 && global_column != 0) 
+	if (threadIdx.x == 0 && global_column != 0)
 	{
-		shr_matrix[threadIdx.y + 1][threadIdx.x] = table[global_row][global_column-1];
+		shr_matrix[threadIdx.y + 1][threadIdx.x] = table[global_row][global_column - 1];
 
-		if (threadIdx.y == 0) 
+		if (threadIdx.y == 0)
 		{
-			shr_matrix[threadIdx.y][threadIdx.x] = table[global_row-1][global_column-1];
+			shr_matrix[threadIdx.y][threadIdx.x] = table[global_row - 1][global_column - 1];
 		}
 		if (threadIdx.y == _threads - 1) {
-			shr_matrix[threadIdx.y+2][threadIdx.x] = table[global_row+1][global_column-1];
+			shr_matrix[threadIdx.y + 2][threadIdx.x] = table[global_row + 1][global_column - 1];
 		}
 	}
-	if (threadIdx.x == _threads - 1 && global_column != dimension - 1) 
+	if (threadIdx.x == _threads - 1 && global_column != dimension - 1)
 	{
-		shr_matrix[threadIdx.y+1][threadIdx.x+2] = table[global_row][global_column + 1];
+		shr_matrix[threadIdx.y + 1][threadIdx.x + 2] = table[global_row][global_column + 1];
 
-		if (threadIdx.y == 0) 
+		if (threadIdx.y == 0)
 		{
-			shr_matrix[threadIdx.y][threadIdx.x+2] = table[global_row-1][global_column+1];
+			shr_matrix[threadIdx.y][threadIdx.x + 2] = table[global_row - 1][global_column + 1];
 		}
 		if (threadIdx.y == _threads - 1)
 		{
-			shr_matrix[threadIdx.y+2][threadIdx.x+2] = table[global_row+1][global_column+1];
+			shr_matrix[threadIdx.y + 2][threadIdx.x + 2] = table[global_row + 1][global_column + 1];
 		}
 	}
 	if (threadIdx.y == 0 && global_row != 0)
 	{
-		shr_matrix[threadIdx.y][threadIdx.x+1] = table[global_row-1][global_column];
+		shr_matrix[threadIdx.y][threadIdx.x + 1] = table[global_row - 1][global_column];
 	}
 	if (threadIdx.y == _threads - 1 && global_row != dimension - 1)
 	{
-		shr_matrix[threadIdx.y+2][threadIdx.x+1] = table[global_row+1][global_column];
+		shr_matrix[threadIdx.y + 2][threadIdx.x + 1] = table[global_row + 1][global_column];
 	}
 
 	int count = 0;
@@ -124,6 +125,12 @@ __global__ void kernel(my_arr* table, my_arr* temptable, int dimension) {
 
 int main()
 {
+	cudaEvent_t start, stop;
+	float elapsedTime;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord(start, 0);
+
 	GameSpace g(_dimension, _dimension, 0.3);
 
 	my_arr* host_table;
@@ -138,14 +145,14 @@ int main()
 		}
 	}
 
-	for (size_t i = 0; i < _dimension; ++i) {
+	/*for (size_t i = 0; i < _dimension; ++i) {
 		for (size_t j = 0; j < _dimension; ++j) {
 			printf("%d", host_table[i][j]);
 			printf(" ");
 		}
 		printf("\n");
 	}
-	printf("\n");
+	printf("\n");*/
 
 	// device memorian allokacio
 	cudaMalloc(&dev_table, dsize);
@@ -169,17 +176,20 @@ int main()
 	// memoria copy vissza
 	cudaMemcpy(host_table, dev_table, dsize, cudaMemcpyDeviceToHost);
 
-	for (size_t i = 0; i < _dimension; ++i) {
+	/*for (size_t i = 0; i < _dimension; ++i) {
 		for (size_t j = 0; j < _dimension; ++j) {
 			printf("%d", host_table[i][j]);
 			printf(" ");
 		}
 		printf("\n");
-	}
-
-	printf("kesz");
+	}*/
 
 	free(host_table);
 	cudaFree(dev_table);
 	cudaFree(dev_temptable);
+
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&elapsedTime, start, stop);
+	printf("Kernel futás ideje: %f ms\n", elapsedTime);
 }
